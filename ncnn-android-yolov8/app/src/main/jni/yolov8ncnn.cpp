@@ -238,7 +238,17 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_openCamera(JNI
 
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "openCamera %d", facing);
 
-    g_camera->open((int)facing);
+    if (!g_camera) {
+        __android_log_print(ANDROID_LOG_ERROR, "ncnn", "g_camera is null");
+        return JNI_FALSE;
+    }
+
+    int ret = g_camera->open((int)facing);
+    
+    if (ret != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "ncnn", "failed to open camera");
+        return JNI_FALSE;
+    }
 
     return JNI_TRUE;
 }
@@ -248,7 +258,9 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_closeCamera(JN
 {
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "closeCamera");
 
-    g_camera->close();
+    if (g_camera) {
+        g_camera->close();
+    }
 
     return JNI_TRUE;
 }
@@ -256,6 +268,11 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_closeCamera(JN
 // public native boolean setOutputWindow(Surface surface);
 JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_setOutputWindow(JNIEnv* env, jobject thiz, jobject surface)
 {
+    if (!g_camera) {
+        __android_log_print(ANDROID_LOG_ERROR, "ncnn", "g_camera is null");
+        return JNI_FALSE;
+    }
+    
     ANativeWindow* win = ANativeWindow_fromSurface(env, surface);
 
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "setOutputWindow %p", win);

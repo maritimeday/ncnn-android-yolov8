@@ -48,12 +48,16 @@ static void onImageAvailable(void* context, AImageReader* reader)
     int32_t format;
     AImage_getFormat(image, &format);
 
+    // __android_log_print(ANDROID_LOG_DEBUG, "NdkCamera", "Image format: %d", format);
+    
     // assert format == AIMAGE_FORMAT_YUV_420_888
 
     int32_t width = 0;
     int32_t height = 0;
     AImage_getWidth(image, &width);
     AImage_getHeight(image, &height);
+
+    // __android_log_print(ANDROID_LOG_DEBUG, "NdkCamera", "Image size: %dx%d", width, height);
 
     int32_t y_pixelStride = 0;
     int32_t u_pixelStride = 0;
@@ -180,6 +184,7 @@ NdkCamera::NdkCamera()
 
     // setup imagereader and its surface
     {
+        // 使用更常见的分辨率
         AImageReader_new(640, 480, AIMAGE_FORMAT_YUV_420_888, /*maxImages*/2, &image_reader);
 
         AImageReader_ImageListener listener;
@@ -264,12 +269,20 @@ int NdkCamera::open(int _camera_facing)
 
             camera_orientation = orientation;
 
+            __android_log_print(ANDROID_LOG_DEBUG, "NdkCamera", "found camera %s facing %d orientation %d", id, facing, orientation);
+
             ACameraMetadata_free(camera_metadata);
 
             break;
         }
 
         ACameraManager_deleteCameraIdList(camera_id_list);
+    }
+
+    if (camera_id.empty())
+    {
+        __android_log_print(ANDROID_LOG_ERROR, "NdkCamera", "no camera found");
+        return -1;
     }
 
     __android_log_print(ANDROID_LOG_WARN, "NdkCamera", "open %s %d", camera_id.c_str(), camera_orientation);
@@ -282,6 +295,11 @@ int NdkCamera::open(int _camera_facing)
         camera_device_state_callbacks.onError = onError;
 
         ACameraManager_openCamera(camera_manager, camera_id.c_str(), &camera_device_state_callbacks, &camera_device);
+        
+        if (!camera_device) {
+            __android_log_print(ANDROID_LOG_ERROR, "NdkCamera", "failed to open camera");
+            return -1;
+        }
     }
 
     // capture request
@@ -290,6 +308,10 @@ int NdkCamera::open(int _camera_facing)
 
         ACameraOutputTarget_create(image_reader_surface, &image_reader_target);
         ACaptureRequest_addTarget(capture_request, image_reader_target);
+        
+        // 设置自动对焦
+        int32_t controlMode = ACAMERA_CONTROL_MODE_AUTO;
+        ACaptureRequest_setEntry_i32(capture_request, ACAMERA_CONTROL_MODE, 1, &controlMode);
     }
 
     // capture session
@@ -307,6 +329,11 @@ int NdkCamera::open(int _camera_facing)
         ACaptureSessionOutputContainer_add(capture_session_output_container, capture_session_output);
 
         ACameraDevice_createCaptureSession(camera_device, capture_session_output_container, &camera_capture_session_state_callbacks, &capture_session);
+
+        if (!capture_session) {
+            __android_log_print(ANDROID_LOG_ERROR, "NdkCamera", "failed to create capture session");
+            return -1;
+        }
 
         ACameraCaptureSession_captureCallbacks camera_capture_session_capture_callbacks;
         camera_capture_session_capture_callbacks.context = this;

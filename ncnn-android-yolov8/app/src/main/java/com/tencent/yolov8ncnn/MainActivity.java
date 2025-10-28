@@ -132,6 +132,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
     @Override
     public void surfaceCreated(SurfaceHolder holder)
     {
+        yolov8ncnn.setOutputWindow(holder.getSurface());
     }
 
     @Override
@@ -149,7 +150,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
             ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.CAMERA}, REQUEST_CAMERA);
         }
 
-        yolov8ncnn.openCamera(facing);
+        // 确保在设置输出窗口后再打开摄像头
+        if (cameraView.getHolder().getSurface() != null && cameraView.getHolder().getSurface().isValid()) {
+            yolov8ncnn.setOutputWindow(cameraView.getHolder().getSurface());
+        }
+        
+        boolean result = yolov8ncnn.openCamera(facing);
+        if (!result) {
+            Log.e("MainActivity", "Failed to open camera");
+        }
     }
 
     @Override
